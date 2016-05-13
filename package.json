@@ -1,0 +1,44 @@
+{
+  "name": "aframe-heightgrid-component",
+  "version": "0.1.0",
+  "description": "Height Grid (Terrain) component for A-Frame.",
+  "main": "index.js",
+  "scripts": {
+    "build": "browserify examples/main.js -o examples/build.js",
+    "dev": "budo examples/main.js:build.js --dir examples --port 8000 --live --open",
+    "dist": "webpack index.js dist/aframe-heightgrid-component.js && webpack -p index.js dist/aframe-heightgrid-component.min.js",
+    "postpublish": "npm run dist",
+    "preghpages": "npm run build && shx rm -rf gh-pages && shx cp -r examples gh-pages",
+    "ghpages": "npm run preghpages && ghpages -p gh-pages",
+    "unboil": "node scripts/unboil.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andreasplesch/aframe-heightgrid-component.git"
+  },
+  "keywords": [
+    "aframe",
+    "aframe-component",
+    "aframe-vr",
+    "vr",
+    "mozvr",
+    "webvr"
+  ],
+  "author": "Andreas Plesch <andreasplesch@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/andreasplesch/aframe-heightgrid-component/issues"
+  },
+  "homepage": "https://github.com/andreasplesch/aframe-heightgrid-component#readme",
+  "devDependencies": {
+    "aframe": "^0.2.0",
+    "browserify": "^13.0.0",
+    "browserify-css": "^0.9.1",
+    "budo": "^8.2.2",
+    "ghpages": "^0.0.8",
+    "inquirer": "^1.0.2",
+    "shelljs": "^0.7.0",
+    "shx": "^0.1.1",
+    "webpack": "^1.13.0"
+  }
+}
