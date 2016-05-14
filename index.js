@@ -6,7 +6,24 @@ if (typeof AFRAME === 'undefined') {
  * Height Grid (Terrain) component for A-Frame.
  */
 AFRAME.registerComponent('heightgrid', {
-  schema: { },
+  schema: { 
+		dependencies: ['faceset'],		
+    origin: { 
+			default: { x: 0, y: 0, z: 0 } },
+		xdimension: {
+			default: 0 },
+		zdimension: {
+			default: 0 },
+		xspacing: {
+			default: 1 },
+		zspacing: {
+			default: 1 },
+		heights: {
+			default: [],
+			parse: function (value) { return parseFloats (value) } ,
+			stringify: function (value) { return stringifyFloats (value) }
+		}
+	}, 
 
   /**
    * Called once when component is attached. Generally for initial setup.
