@@ -1,0 +1,33 @@
+<html>
+  <head>
+    <title>A-Frame Height Grid (Terrain) Component - Basic</title>
+    <script src="../build.js"></script>
+  </head>
+  <body>
+    <a-scene>
+      <a-assets>
+        <img id="my-texture" src="macaca_nigra_self-portrait.jpg">
+      </a-assets>
+      
+      <a-entity light="type: directional; color: #FFF; intensity: 0.9" position="-100 100 100"></a-entity>
+      <a-entity light="type: directional; color: #FFF; intensity: 0.9" position="100 100 100"></a-entity>
+      <a-entity light="type: directional; color: #FFF; intensity: 0.5" position="0 -100 0"></a-entity>
+      <a-entity rotation='-30 0 0' position='0 10 13'>
+        <a-entity camera look-controls wasd-controls='fly: true' ></a-entity>
+      </a-entity>
+  
+      <a-entity heightgrid='xdimension: 4; zdimension: 3; yscale: 0.5; heights:
+        5 4 3 2
+        5 4 3 2
+        3 3 0 0;
+        uvs:
+        0 1, 0.333 1, 0.666 1, 1 1,
+        0 0.666, 0.333 0.666, 0.666 0.666, 1 0.666,
+        0 0.333, 0.333 0.333, 0.666 0.333, 1 0.333,
+        0 0, 0.333 0, 0.666 0, 1 0;
+        ' material="src: #my-texture; side: double; color: #C03546"></a-entity>
+      <a-entity heightgrid='xdimension: 2; zdimension: 2' material='src: #my-texture; color: green'></a-entity>  
+      <a-entity heightgrid='xdimension: 2; zdimension: 2; heights: 0 1; origin: -2 1 0' material='color: red'></a-entity>  
+    </a-scene>
+  </body>
+</html>
