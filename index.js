@@ -19,7 +19,7 @@ AFRAME.registerComponent('heightgrid', {
 		zspacing: {
 			default: 1 },
 		heights: {
-			default: [],
+			default: [0],
 			parse: function (value) { return parseNumbers (value) } ,
 			//stringify: function (value) { return value.toString() }
 		}
@@ -43,7 +43,7 @@ AFRAME.registerComponent('heightgrid', {
     var zspacing = data.zspacing;
     
     var h = data.heights;
-    var h = h.length ? h:[0];
+    //var h = h.length ? h : [0];
     
     //vertices
     var vts = [];
@@ -53,7 +53,15 @@ AFRAME.registerComponent('heightgrid', {
           x * xspacing, h[(x + z * xdimension)%h.length)], z * zspacing ) ); 
       }
     }
-    
+    //faces
+    var faces = [];
+    for (var z = 0; z < zdimension-1; z++) {
+      for (var x = 0; x < xdimension-1; x++) {
+        var i = x + z * xdimension;
+        faces.push( new THREE.Face3( i, i + 1, i + 1 + xdimension ) );
+        faces.push( new THREE.Face3( i, i + xdimension,  i + 1 + xdimension) );
+      }
+    }
     el.setAttribute('faceset', { triangles: faces, vertices: vts } );
     
   },
@@ -62,24 +70,8 @@ AFRAME.registerComponent('heightgrid', {
    * Called when a component is removed (e.g., via removeAttribute).
    * Generally undoes all modifications to the entity.
    */
-  remove: function () { },
+  remove: function () { this.el.removeAttribute('faceset'); }
 
-  /**
-   * Called on each scene tick.
-   */
-  // tick: function (t) { },
-
-  /**
-   * Called when entity pauses.
-   * Use to stop or remove any dynamic or background behavior such as events.
-   */
-  pause: function () { },
-
-  /**
-   * Called when entity resumes.
-   * Use to continue or add any dynamic or background behavior such as events.
-   */
-  play: function () { },
 });
 
 function parseNumbers (value) {
