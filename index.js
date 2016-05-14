@@ -8,12 +8,13 @@ if (typeof AFRAME === 'undefined') {
 AFRAME.registerComponent('heightgrid', {
   schema: { 
 		dependencies: ['faceset'],		
-    origin: { 
+    origin: {
+      type: 'vec3',
 			default: { x: 0, y: 0, z: 0 } },
 		xdimension: {
-			default: 0 },
+			default: 2 },
 		zdimension: {
-			default: 0 },
+			default: 2 },
 		xspacing: {
 			default: 1 },
 		zspacing: {
@@ -22,7 +23,19 @@ AFRAME.registerComponent('heightgrid', {
 			default: [0],
 			parse: function (value) { return parseNumbers (value) } ,
 			//stringify: function (value) { return value.toString() }
-		}
+		},
+    yscale: {
+      default: 1.0 },
+    uvs: { // texture coordinates as list 
+      default: [],
+      parse: function (value) { return parseVec2s (value) } ,
+      stringify: function (data) {
+        return data.map( function stringify (data) {
+          if (typeof data !== 'object') { return data; }
+          return [data.x, data.y].join(' ');
+        }).join(',');
+      }
+    },
 	}, 
 
   /**
@@ -37,12 +50,14 @@ AFRAME.registerComponent('heightgrid', {
   update: function (oldData) {
     var el = this.el;
     var data = this.data;
-    var xdimension = data.xdimension;
-    var zdimension = data.zdimension;
+    var origin = data.origin;
+    var xdimension = Math.max(2, data.xdimension);
+    var zdimension = Math.max(2, data.zdimension);
     var xspacing = data.xspacing;
     var zspacing = data.zspacing;
-    
+    var yscale = data.yscale;
     var h = data.heights;
+    var uvs = data.uvs;
     //var h = h.length ? h : [0];
     
     //vertices
@@ -50,7 +65,9 @@ AFRAME.registerComponent('heightgrid', {
     for (var z = 0; z < zdimension; z++) {
       for (var x = 0; x < xdimension; x++) {
         vts.push( new THREE.Vector3 (
-          x * xspacing, h[(x + z * xdimension)%h.length)], z * zspacing ) ); 
+          origin.x + x * xspacing,
+          origin.y + yscale * h[(x + z * xdimension)%h.length],
+          origin.z + z * zspacing ) ); 
       }
     }
     //faces
@@ -58,11 +75,21 @@ AFRAME.registerComponent('heightgrid', {
     for (var z = 0; z < zdimension-1; z++) {
       for (var x = 0; x < xdimension-1; x++) {
         var i = x + z * xdimension;
-        faces.push( new THREE.Face3( i, i + 1, i + 1 + xdimension ) );
+        faces.push( new THREE.Face3( i, i + 1 + xdimension, i + 1 ) );
         faces.push( new THREE.Face3( i, i + xdimension,  i + 1 + xdimension) );
       }
     }
-    el.setAttribute('faceset', { triangles: faces, vertices: vts } );
+    //uvs
+    var _uvs = uvs.map(function copy (uv) {return uv});
+    if (_uvs.length == 0) {
+      //default aligned with x,z
+      for (var z = 0; z < zdimension; z++) {
+        for (var x = 0; x < xdimension; x++) {
+          _uvs.push(new THREE.Vector2( x/(xdimension-1), z/(zdimension-1) ));
+        }
+      }
+    }
+    el.setAttribute('faceset', { triangles: faces, vertices: vts, uvs: _uvs } );
     
   },
 
@@ -86,3 +113,14 @@ function parseNumbers (value) {
 	return numbers;
 }
 
+function parseVec2s (value) {
+  if (typeof value === 'object') {return value} // perhaps also check value.isArray
+  var mc = value.match(/([+\-0-9eE\.]+)/g);
+  var vecs = [];
+  //var vec = {};
+  for (var i=0, n=mc?mc.length:0; i<n; i+=2) {
+    //vec = new THREE.Vector2(+mc[i+0], +mc[i+1]);
+    vecs.push( new THREE.Vector2(+mc[i+0], +mc[i+1]) );
+  }
+  return vecs;
+}
