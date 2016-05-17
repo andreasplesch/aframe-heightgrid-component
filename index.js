@@ -75,8 +75,15 @@ AFRAME.registerComponent('heightgrid', {
     for (var z = 0; z < zdimension-1; z++) {
       for (var x = 0; x < xdimension-1; x++) {
         var i = x + z * xdimension;
-        faces.push( new THREE.Face3( i, i + 1 + xdimension, i + 1 ) );
-        faces.push( new THREE.Face3( i, i + xdimension,  i + 1 + xdimension) );
+	//alternate diagonal
+	if ( (x+z)%2 == 0 ) {
+	  faces.push( new THREE.Face3( i, i + 1 + xdimension, i + 1 ) );
+	  faces.push( new THREE.Face3( i, i + xdimension,  i + 1 + xdimension) );
+	}
+	else {
+	  faces.push( new THREE.Face3( i, i + xdimension, i + 1 ) );
+	  faces.push( new THREE.Face3( i + xdimension,  i + 1 + xdimension, i + 1) );
+	}
       }
     }
     //uvs
