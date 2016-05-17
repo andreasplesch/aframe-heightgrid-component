@@ -1,8 +1,10 @@
 <html>
   <head>
-    <title>A-Frame Height Grid (Terrain) Component - Basic</title>
+    <title>A-Frame Height Grid (Terrain) Component - Advanced</title>
     <script src="../build.js"></script>
     <script src="lib/usgsNed.js"></script>
+    <!--script src="https://rawgit.com/andreasplesch/aframe-crease-component/master/dist/aframe-crease-component.min.js"></script-->
+    <script src="https://raw.githubusercontent.com/andreasplesch/aframe-crease-component/master/dist/aframe-crease-component.min.js"></script>
   </head>
   <body>
     <a-scene>
@@ -16,38 +18,47 @@
       <a-entity rotation='0 0 0' position='5 1 13'>
         <a-entity camera look-controls wasd-controls='fly: true' ></a-entity>
       </a-entity>
-  
-      <a-entity id='terrain' heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0001' material='color: green'></a-entity>  
+      //<a-sphere crease material></a-sphere>
+      <a-entity id='terrain'  heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0002' material='color: darkgreen' crease` ></a-entity>  
         
     </a-scene>
   </body>
   <script>
   window.onload = function () {
-    var n = 20;
+    var n = 10;
     var lon0 = -119;
     var lat0 = 35;
     var heights = [];
     var el = document.querySelector('#terrain');
-    el.setAttribute('heightgrid', { xdimension: n, zdimension: n, yscale: n*3/100000 });
+    var getElevPs = [];
+    el.setAttribute('heightgrid', { xdimension: n, zdimension: n, xspacing: 10/n, zspacing: 10/n, yscale: 0.0002 });
     
     for (var lat = 0; lat < n; lat++) {
       for (var lon = 0; lon < n; lon++) {
         heights.push(0);
-        usgsNed.getElevation(lon0+lon/n, lat0-lat/n).
-          then(function(result){
-            console.log(result, lon, lat);
-            var lon = Math.round((result.x - lon0)*n);
-            var lat = Math.round((-result.y + lat0)*n);
-            
-            heights[lon+n*lat]=result.Elevation;
-            console.log(heights);
-            el.setAttribute('heightgrid','heights',heights);
-          },
-          function(reason) {
-            // rejection
-          });
+        var _tid = window.setTimeout( function (lat, lon) {
+          var getElevP = usgsNed.getElevation(lon0+lon/n, lat0-lat/n);
+          getElevPs.push(getElevP);
+          getElevP.then
+              (function(result){
+              //console.log(result, lon, lat);
+              var lon = Math.round((result.x - lon0)*n);
+              var lat = Math.round((-result.y + lat0)*n);
+              
+              heights[lon+n*lat]=result.Elevation;
+              //console.log(heights);
+              el.setAttribute('heightgrid', 'heights', heights);
+              //el.setAttribute('crease', false);
+              el.setAttribute('crease', true);
+            },
+            function(reason) {
+              // rejection
+            });
+          
+          }, 200, lat, lon ); //stagger xhr to server
       }
-    } 
+    }
+    Promise.all (getElevPs).then (function(result){console.log("all done " + result);});
   }
   </script>
 </html>
