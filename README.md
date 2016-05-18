@@ -28,6 +28,8 @@ If the heights property contains less values than the number of grid points, hei
 
 The default value for the uvs property is an empty list. An empty list will lead to texture coordinates which correspond directly to the x and z coordinates of the grid points, scaled to vary between 0 and 1.
 
+The demos have examples of how to use custom uvs.
+
 ### Usage
 
 #### Browser Installation
@@ -45,7 +47,7 @@ Install and use by directly including the [browser files](dist):
 
 <body>
   <a-scene>
-    <a-entity heightgrid="exampleProp: exampleVal"></a-entity>
+    <a-entity heightgrid="height: 1 2 2 1"></a-entity>
   </a-scene>
 </body>
 ```
