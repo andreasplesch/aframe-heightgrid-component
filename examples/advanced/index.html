@@ -9,25 +9,28 @@
   <body>
     <a-scene>
       <a-assets>
-        <img id="my-texture" src="../assets/macaca_nigra_self-portrait.jpg">
+        <img id="my-texture" src="../assets/gist_earth10.png">
       </a-assets>
       
-      <a-entity light="type: directional; color: #FFF; intensity: 0.9" position="-100 100 100"></a-entity>
-      <a-entity light="type: directional; color: #FFF; intensity: 0.9" position="100 100 100"></a-entity>
+      <a-entity light="type: directional; color: #FFF; intensity: 0.5" position="-100 100 100"></a-entity>
+      <a-entity light="type: directional; color: #FFF; intensity: 0.5" position="100 100 100"></a-entity>
       <a-entity light="type: directional; color: #FFF; intensity: 0.5" position="0 -100 0"></a-entity>
-      <a-entity rotation='0 0 0' position='5 1 13'>
+      <a-entity rotation='-45 0 0' position='5 10 13'>
         <a-entity camera look-controls wasd-controls='fly: true' ></a-entity>
       </a-entity>
-      <a-entity id='terrain'  heightgrid='xdimension: 2; zdimension: 2; yscale: 0.0002' crease material='src: #my-texture' ></a-entity>  
+      <a-entity id='terrain'  crease heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0002'  material='src: #my-texture' ></a-entity>  
         
     </a-scene>
   </body>
   <script>
   window.onload = function () {
-    var n = 10;
+    var n = 10; //USGS NED service maxes out at 20x20
     var lon0 = -119;
     var lat0 = 35;
+    var h_min = 0;
+    var h_max = 5000;
     var heights = [];
+    var uvs = []; // contour texture
     var el = document.querySelector('#terrain');
     var getElevPs = [];
     el.setAttribute('heightgrid', { xdimension: n, zdimension: n, xspacing: 10/n, zspacing: 10/n, yscale: 0.0002 });
@@ -35,6 +38,7 @@
     for (var lat = 0; lat < n; lat++) {
       for (var lon = 0; lon < n; lon++) {
         heights.push(0);
+        uvs.push(new THREE.Vector2( 0, 0 ));
         var _tid = window.setTimeout( function (lat, lon) {
           var getElevP = usgsNed.getElevation(lon0+lon/n, lat0-lat/n);
           getElevPs.push(getElevP);
@@ -43,9 +47,11 @@
               
               var lon = Math.round((result.x - lon0)*n);
               var lat = Math.round((-result.y + lat0)*n);
-              
-              heights[lon+n*lat]=result.Elevation;
-              el.setAttribute('heightgrid', 'heights', heights);
+              var h = result.Elevation;
+              uvs[lon+n*lat] = new THREE.Vector2 ( Math.min(1, (h-h_min)/(h_max - h_min) ), 0 );
+              heights[lon+n*lat] = h;
+              el.setAttribute('heightgrid', 'heights', heights );
+              el.setAttribute('heightgrid', 'uvs', uvs );
             },
             function(reason) {
               // rejection
