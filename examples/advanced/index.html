@@ -4,6 +4,7 @@
     <script src="../build.js"></script>
     <script src="lib/usgsNed.js"></script>
     <!--script src="https://rawgit.com/andreasplesch/aframe-crease-component/master/dist/aframe-crease-component.min.js"></script-->
+    <script src="//cdn.rawgit.com/donmccurdy/aframe-extras/v1.15.1/dist/aframe-extras.min.js"></script>
     <script src="https://raw.githubusercontent.com/andreasplesch/aframe-crease-component/master/dist/aframe-crease-component.min.js"></script>
   </head>
   <body>
@@ -17,7 +18,7 @@
       <a-entity light="type: directional; color: #FFF; intensity: 0.5" position="100 100 100"></a-entity>
       <a-entity light="type: directional; color: #FFF; intensity: 0.5" position="0 -100 0"></a-entity>
       <a-entity rotation='-45 0 0' position='5 10 13'>
-        <a-entity camera look-controls wasd-controls='fly: true' ></a-entity>
+        <a-entity camera universal-controls='movementAcceleration: 20' ></a-entity>
       </a-entity>
       <a-entity id='terrain'  crease heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0002'  material='src: #my-texture' ></a-entity>  
         
