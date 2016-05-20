@@ -161,22 +161,25 @@
 			};
 			var request = new XMLHttpRequest();
 			request.open("get", [baseUrl, objectToQueryString(params)].join("?"));
-			request.onloadend = function () {
-				/*
-				{
-					"USGS_Elevation_Point_Query_Service": {
-						"Elevation_Query": {
-							"x": -123,
-							"y": 45,
-							"Data_Source": "NED 1/3 arc-second",
-							"Elevation": 177.965854,
-							"Units": "Feet"
-						}
-					}
-				}
-				 */
-				var response = JSON.parse(this.responseText);
-				resolve(response.USGS_Elevation_Point_Query_Service.Elevation_Query);
+			request.onload = function () {
+        if (request.status === 200) {
+          /*
+          {
+            "USGS_Elevation_Point_Query_Service": {
+              "Elevation_Query": {
+                "x": -123,
+                "y": 45,
+                "Data_Source": "NED 1/3 arc-second",
+                "Elevation": 177.965854,
+                "Units": "Feet"
+              }
+            }
+          }
+           */
+          var response = JSON.parse(this.responseText);
+          resolve(response.USGS_Elevation_Point_Query_Service.Elevation_Query);
+        }
+        else { reject(request.statusText); }
 			};
 			request.onerror = function (e) {
 				reject(e);
