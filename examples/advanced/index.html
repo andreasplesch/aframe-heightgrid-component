@@ -26,7 +26,7 @@
   </body>
   <script>
   window.onload = function () {
-    var n = 10; //USGS NED service maxes out at 20x20
+    var n = 10; //make sequential otherwise USGS NED service maxes out at 20x20
     var lon0 = -119;
     var lat0 = 35;
     var h_min = 0;
@@ -35,34 +35,40 @@
     var uvs = []; // contour texture
     var el = document.querySelector('#terrain');
     var getElevPs = [];
+    var coords = [];
     el.setAttribute('heightgrid', { xdimension: n, zdimension: n, xspacing: 10/n, zspacing: 10/n, yscale: 0.0002 });
-    
     for (var lat = 0; lat < n; lat++) {
       for (var lon = 0; lon < n; lon++) {
         heights.push(0);
         uvs.push(new THREE.Vector2( 0, 0 ));
-        var _tid = window.setTimeout( function (lat, lon) {
-          var getElevP = usgsNed.getElevation(lon0+lon/n, lat0-lat/n);
-          getElevPs.push(getElevP);
-          getElevP.then
-              (function(result){
-              
-              var lon = Math.round((result.x - lon0)*n);
-              var lat = Math.round((-result.y + lat0)*n);
-              var h = result.Elevation;
-              uvs[lon+n*lat] = new THREE.Vector2 ( Math.min(1, (h-h_min)/(h_max - h_min) ), 0 );
-              heights[lon+n*lat] = h;
-              el.setAttribute('heightgrid', 'heights', heights );
-              el.setAttribute('heightgrid', 'uvs', uvs );
-            },
-            function(reason) {
-              // rejection
-            });
-          
-          }, 200, lat, lon ); //stagger xhr to server
+        coords.push(new THREE.Vector2 (lon0+lon/n, lat0-lat/n)); //make new object
       }
     }
-    Promise.all (getElevPs).then (function(result){console.log("all done " + result);});
+    //bundle into 10 or so simult. requests
+    var sequence = Promise.resolve();
+    coords.forEach(function(coord) {
+      sequence = sequence.then(
+        function(result){  
+          var _lon = Math.round((result.x - lon0)*n);
+          var _lat = Math.round((-result.y + lat0)*n);
+          var h = result.Elevation;
+          uvs[_lon+n*_lat] = new THREE.Vector2 ( Math.min(1, (h-h_min)/(h_max - h_min) ), 0 );
+          heights[_lon+n*_lat] = h;
+          el.setAttribute('heightgrid', 'heights', heights );
+          el.setAttribute('heightgrid', 'uvs', uvs );
+          var getElevP = usgsNed.getElevation(coord.x, coord.y); //cache
+          getElevPs.push(getElevP);
+          return getElevP
+        },
+        function(reason) {
+          // rejection
+          var getElevP = usgsNed.getElevation(coord.x, coord.y);
+          getElevPs.push(getElevP);
+          return getElevP
+        }
+      );
+    });
+    Promise.all (getElevPs).then (function(result){console.log("all done ");});
   }
   </script>
 </html>
