@@ -1,0 +1,164 @@
+<html>
+  <head>
+    <title>A-Frame Height Grid (Terrain) Component - Advanced</title>
+    <script src="../build.js"></script>
+    <script src="lib/usgsNed.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/live/3.0/firebase.js"></script>
+    <!--script src="https://rawgit.com/andreasplesch/aframe-crease-component/master/dist/aframe-crease-component.min.js"></script-->
+    <script src="//cdn.rawgit.com/donmccurdy/aframe-extras/v1.15.1/dist/aframe-extras.min.js"></script>
+    <script src="https://raw.githubusercontent.com/andreasplesch/aframe-crease-component/master/dist/aframe-crease-component.min.js"></script>
+  </head>
+  <body>
+  Use keyboard and mouse to fly
+    <a-scene>
+      <a-assets>
+        <img id="my-texture" src="../assets/gist_earth10.png">
+      </a-assets>
+      
+      <a-entity light="type: directional; color: #FFF; intensity: 0.5" position="-100 100 100"></a-entity>
+      <a-entity light="type: directional; color: #FFF; intensity: 0.5" position="100 100 100"></a-entity>
+      <a-entity light="type: directional; color: #FFF; intensity: 0.5" position="0 -100 0"></a-entity>
+      <a-entity rotation='-45 0 0' position='5 10 13'>
+        <a-entity camera universal-controls='movementAcceleration: 20' ></a-entity>
+      </a-entity>
+      <a-entity id='terrain'  crease heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0002'  material='src: #my-texture' ></a-entity>  
+      <a-entity id='terrain2' crease heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0002'  material='src: #my-texture' position='10 0 0'></a-entity>  
+        
+    </a-scene>
+  </body>
+  <script>
+  // Initialize Firebase
+  var config = {
+    apiKey: "AIzaSyC4ZxrmFf8tYnPKwj32rISCaoz66LHwVog",
+    authDomain: "heights-database.firebaseapp.com",
+    databaseURL: "https://heights-database.firebaseio.com",
+    storageBucket: "heights-database.appspot.com",
+  };
+  firebase.initializeApp(config);
+  </script>
+  <script>
+  window.onload = function () {
+    var n = 5; //make sequential otherwise USGS NED service maxes out at 20x20
+    var lon0 = -119;
+    var lat0 = 35;
+		var hscale = 10/185000/36;
+    var yscale = 200*hscale;
+    var h_min = 0;
+    var h_max = 5000;
+    var heights = [];
+    var tileCache = {};
+    var uvs = []; // contour texture
+    var el = document.querySelector('#terrain');
+    var el2 = document.querySelector('#terrain2');
+    var db = firebase.database();
+    var zl = 2; //zoomlevel
+    /*
+    var z2 = {};
+    db.ref(zl).once('value').then( function(snapshot) {
+      z2 = snapshot.val();
+      console.log(Object.keys(z2));} );
+      */
+    var htile = getTileP(lon0,lat0,zl).then(function(dtile){
+        var n = 36;
+        var s = dtile.d * hscale;
+        var heights = [];
+        for (var lat = 0; lat < n; lat++) {
+            for (var lon = 0; lon < n; lon++) {
+                heights.push(dtile[lon][n-lat-1]);
+            }
+        }
+        el.setAttribute('heightgrid', { xdimension: n, zdimension: n, xspacing: s, zspacing: s, yscale: yscale, heights: heights });
+    });
+		var htile = getTileP(lon0+2,lat0,zl).then(function(dtile){
+        var n = 36;
+        var s = dtile.d * hscale;
+        var heights = [];
+        for (var lat = 0; lat < n; lat++) {
+            for (var lon = 0; lon < n; lon++) {
+                heights.push(dtile[lon][n-lat-1]);
+            }
+        }
+        el2.setAttribute('heightgrid', { xdimension: n, zdimension: n, xspacing: s, zspacing: s, yscale: yscale, heights: heights });
+    });
+    /*
+    var getElevPs = [];
+    var coords = [];
+    el.setAttribute('heightgrid', { xdimension: n, zdimension: n, xspacing: 10/n, zspacing: 10/n, yscale: 0.0002 });
+    for (var lat = 0; lat < n; lat++) {
+      for (var lon = 0; lon < n; lon++) {
+        heights.push(0);
+        uvs.push(new THREE.Vector2( 0, 0 ));
+        coords.push(new THREE.Vector2 (lon0+lon/n, lat0-lat/n)); //make new object
+      }
+    }
+    //bundle into 10 or so simult. requests
+    var sequence = Promise.resolve();
+    coords.forEach(function(coord) {
+      sequence = sequence.then(
+        function(result){  
+          var _lon = Math.round((result.x - lon0)*n);
+          var _lat = Math.round((-result.y + lat0)*n);
+          var h = result.Elevation;
+          uvs[_lon+n*_lat] = new THREE.Vector2 ( Math.min(1, (h-h_min)/(h_max - h_min) ), 0 );
+          heights[_lon+n*_lat] = h;
+          el.setAttribute('heightgrid', 'heights', heights );
+          el.setAttribute('heightgrid', 'uvs', uvs );
+          var getElevP = usgsNed.getElevation(coord.x, coord.y); //cache
+          getElevPs.push(getElevP);
+          return getElevP
+        },
+        function(reason) {
+          // rejection
+          var getElevP = usgsNed.getElevation(coord.x, coord.y);
+          getElevPs.push(getElevP);
+          return getElevP
+        }
+      );
+    });
+    Promise.all (getElevPs).then (function(result){console.log("all done ");});
+    */
+    function getTileP(lon, lat, zoom) {
+      //determine tile
+			lon = (lon+360)%360;
+      var tile = [lon, lat].map( function totCoord (coord) {
+				coord = coord * 1e6 / Math.pow(36, 5-zoom);
+				return Math.round(coord).toString(36)	});
+      tile = tile.map( function omitlast (coord) { return coord.slice(0, -1) } );
+      if (tileCache[tile] !== undefined) {return Promise.resolve(tileCache[tile]);}
+      var t = {};
+      //////////////////////////
+      return db.ref(zoom + "/" + tile[0] + "/" + tile[1]).once('value').then( function (h) {
+				return toDegAndFill(h.val(), tile, zoom);
+				});
+    };
+    
+    function toDegAndFill(cell, tile, zoom){
+        var degCell={};
+        degCell.lon = parseInt(tile[0],36)*Math.pow(36, zoom)/1e6;
+        degCell.lat = parseInt(tile[1],36)*Math.pow(36, zoom)/1e6;
+        degCell.zoom = zoom;
+        degCell.d = Math.pow(36,  6-zoom)/1e6 * 110000;
+    	var sum = 0;
+    	var n = 0.1;
+    //iterate through grid, fill in current average
+    	for (var lon=0; lon<36; lon++) {
+    		degCell[lon]={};
+    		var alon = lon.toString(36);
+    		for (var lat=0; lat<36; lat++) {
+    			var alat=lat.toString(36);
+    			if (cell[alon] !== undefined && cell[alon][alat] !== undefined) {
+    				degCell[lon][lat] = cell[alon][alat];
+    			}
+    			else {
+    				degCell[lon][lat] = sum/n;
+    			}
+    			sum += degCell[lon][lat];
+    			n++;
+    		}
+    	}
+    	return degCell
+    };
+  }
+  
+  </script>
+</html>
