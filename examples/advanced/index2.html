@@ -70,6 +70,8 @@
     */
     //complete tiles
     //getTileP (lon0, lat0, zl). then (tileToGrid.bind (el) );
+    //getTileP (lon0, lat0, zl). then ( function (result) { return toDegAndFill(result.val, result.tile, result.zoom)}).
+    //  then ( tileToGrid.bind (el) );
     //getTileP (lon0+2, lat0, zl). then (tileToGrid.bind (el2) );
     //sample at given rate (1km)
     
@@ -98,6 +100,7 @@
     
     
     function addToHeights (atile) {
+      if (atile === undefined) {return}
       //console.log(this);
       var lon = (this[0]+360)%360;
       var lat = this[1];
@@ -148,6 +151,7 @@
       var tileRef = zoom + "/" + tile[0] + "/" + tile[1];
       
       if (tilePCache[tileRef] === undefined) {tilePCache[tileRef] = db.ref(tileRef).once('value');} // Promise.resolve(tileCache[tileRef]);}
+      //return tilePCache[tileRef]. then ( function (result)  { return {"val": result.val(), "tile": tile, "zoom": zoom} } );
       return tilePCache[tileRef]. then ( function (h) {
         return toDegAndFill(h.val(), tile, zoom) ; })
         //return tileCache[tileRef]; })
