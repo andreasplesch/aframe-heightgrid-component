@@ -76,20 +76,26 @@
     //sample at given rate (1km)
     
     var gridSpacing = 36*36*36/1e6; // 30 arcseconds
-    var dim = 20;
+    var dim = 10;
     var lonT = lon0;
     var latT = lat0;
     var zheights = [];
     for ( var i = 0; i < dim*dim; i++) { heights.push(0); };
     var zo = 2;
-    var sequence = Promise.resolve();
+    //var sequence = Promise.resolve();
+    var sequence = getTileP(lonT, latT, zo);
     //sample heights
     for (var latGrid = dim-1; latGrid >= 0 ; latGrid--) {
       for (var lonGrid = 0; lonGrid < dim; lonGrid++) {
-        //sequence = sequence.then( function (result) {
-            //addToHeights.call([lonT, latT, lonGrid, latGrid], result) ;
-            getTileP(lonT, latT, zo). then ( addToHeights.bind( [lonT, latT, lonGrid, latGrid]) );
-          
+        sequence = sequence.then( function (result) {
+              return getTileP(lonT, latT, zo) }). then
+              ( function (result) { return toDegAndFill(result.val, result.tile, result.zoom)}).
+                then ( addToHeights.bind( [lonT, latT, lonGrid, latGrid])) ;
+            //});
+          //  getTileP(lonT, latT, zo). then
+          //    ( function (result) { return toDegAndFill(result.val, result.tile, result.zoom)}).
+          //      then ( addToHeights.bind( [lonT, latT, lonGrid, latGrid]) );
+            
           //function(reason) {return getTileP(lonT, latT, zo)});
         lonT += gridSpacing;
       }
@@ -101,20 +107,22 @@
     
     function addToHeights (atile) {
       if (atile === undefined) {return}
-      //console.log(this);
-      var lon = (this[0]+360)%360;
+      console.log(this);
+      var lon = this[0];
       var lat = this[1];
       var lonG = this[2];
       var latG = this[3];
       
       //determine cellCoord
-      var tcoords = [lon, lat].map( function getTileCoord (coord) {
+      var tcoords = [(lon+360)%360, lat].map( function getTileCoord (coord) {
         coord = coord * 1e6 / Math.pow(36, 5-zo);
         return Math.round(coord) });
       tcoords = tcoords.map( function remainder (coord) { return coord%36 } );
       
       //var lonG = Math.round((atile.reqLon - lon0)/gridSpacing);
       //var latG = Math.round((atile.reqLat - lat0)/gridSpacing);
+      var lonG = Math.round((lon - lon0)/gridSpacing);
+      var latG = Math.round((lat - lat0)/gridSpacing);
       
       //zheights[lonG+dim*latG]=atile[atile.closestLon][atile.closestLat];
       zheights[lonG+dim*latG]=atile[tcoords[0]][tcoords[1]];
@@ -151,10 +159,13 @@
       var tileRef = zoom + "/" + tile[0] + "/" + tile[1];
       
       if (tilePCache[tileRef] === undefined) {tilePCache[tileRef] = db.ref(tileRef).once('value');} // Promise.resolve(tileCache[tileRef]);}
-      //return tilePCache[tileRef]. then ( function (result)  { return {"val": result.val(), "tile": tile, "zoom": zoom} } );
-      return tilePCache[tileRef]. then ( function (h) {
-        return toDegAndFill(h.val(), tile, zoom) ; })
-        //return tileCache[tileRef]; })
+      return tilePCache[tileRef]. then 
+        ( function (result)  {
+          console.log("got",lon,lat,tile,zoom);
+          return {"lon":lon, "lat":lat, "val": result.val(), "tile": tile, "zoom": zoom} } );
+      //return tilePCache[tileRef]. then ( function (h) {
+      //  return toDegAndFill(h.val(), tile, zoom) ; })
+      //  //return tileCache[tileRef]; })
     };
     
     function toDegAndFill(cell, tile, zoom) {
