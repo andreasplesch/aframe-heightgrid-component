@@ -70,44 +70,48 @@
     */
     //complete tiles
     //getTileP (lon0, lat0, zl). then (tileToGrid.bind (el) );
-    //getTileP (lon0, lat0, zl). then ( function (result) { return toDegAndFill(result.val, result.tile, result.zoom)}).
+    //getTileP (lon0, lat0, zl). then ( function (result) { return toDegAndFill(result.val, result.tileRef)}).
     //  then ( tileToGrid.bind (el) );
     //getTileP (lon0+2, lat0, zl). then (tileToGrid.bind (el2) );
     //sample at given rate (1km)
     
     var gridSpacing = 36*36*36/1e6; // 30 arcseconds
-    var dim = 10;
+    var dim = 30;
     var lonT = lon0;
     var latT = lat0;
     var zheights = [];
     for ( var i = 0; i < dim*dim; i++) { heights.push(0); };
     var zo = 2;
-    //var sequence = Promise.resolve();
-    var sequence = getTileP(lonT, latT, zo);
+    var gridPoints = [];
+    //var sequence = getTileP(lonT, latT, zo);
     //sample heights
     for (var latGrid = dim-1; latGrid >= 0 ; latGrid--) {
       for (var lonGrid = 0; lonGrid < dim; lonGrid++) {
-        sequence = sequence.then( function (result) {
-              return getTileP(lonT, latT, zo) }). then
-              ( function (result) { return toDegAndFill(result.val, result.tile, result.zoom)}).
-                then ( addToHeights.bind( [lonT, latT, lonGrid, latGrid])) ;
+        gridPoints.push([lonT, latT, lonGrid, latGrid]);
+        lonT += gridSpacing;
+      }
+      latT += gridSpacing;
+      lonT = lon0;
+    }
+    var sequence = Promise.resolve();
+    gridPoints.forEach( function getHeight(point) {
+      sequence = sequence.then( function (result) {
+              return getTileP(point[0], point[1], zo) }). then
+              ( function (result) { return toDegAndFill(result.val, result.tileRef)}).
+                then ( addToHeights.bind( [point[0], point[1], point[2], point[3]])) ;
             //});
           //  getTileP(lonT, latT, zo). then
           //    ( function (result) { return toDegAndFill(result.val, result.tile, result.zoom)}).
           //      then ( addToHeights.bind( [lonT, latT, lonGrid, latGrid]) );
             
           //function(reason) {return getTileP(lonT, latT, zo)});
-        lonT += gridSpacing;
-      }
-      latT += gridSpacing;
-      lonT = lon0;
-    }
+      });  
     //el3.setAttribute('heightgrid', { xdimension: dim, zdimension: dim, xspacing: 10/dim, zspacing: 10/dim, yscale: 0.0001, heights: zheights, uvs: uvs });
     
     
     function addToHeights (atile) {
       if (atile === undefined) {return}
-      console.log(this);
+      //console.log(this);
       var lon = this[0];
       var lat = this[1];
       var lonG = this[2];
@@ -147,39 +151,44 @@
       }
       this.setAttribute('heightgrid', { xdimension: n, zdimension: n, xspacing: s, zspacing: s, yscale: yscale, heights: heights, uvs: uvs });
     };
-    
-
-    function getTileP(lon, lat, zoom) {
-      //determine tile
+    /////////////////////
+    function getTileRef(lon, lat, zoom) {
       var _lon = (lon+360)%360;
       var req = [_lon, lat].map( function getTileCoord (coord) {
         coord = coord * 1e6 / Math.pow(36, 5-zoom);
         return Math.round(coord).toString(36) });
       var tile = req.map( function omitlast (coord) { return coord.slice(0, -1) } );
-      var tileRef = zoom + "/" + tile[0] + "/" + tile[1];
+      //var tileRef = zoom + "/" + tile[0] + "/" + tile[1];
+      return {"zoom": zoom, "tileLon": tile[0], "tileLat": tile[1]}
+    }
+    
+    function getTileP(lon, lat, zoom) {
       
-      if (tilePCache[tileRef] === undefined) {tilePCache[tileRef] = db.ref(tileRef).once('value');} // Promise.resolve(tileCache[tileRef]);}
-      return tilePCache[tileRef]. then 
+      var tileRef = getTileRef(lon, lat, zoom);
+      var tileRefPath = tileRef.zoom + "/" + tileRef.tileLon + "/" + tileRef.tileLat;
+      
+      if (tilePCache[tileRefPath] === undefined) {tilePCache[tileRefPath] = db.ref(tileRefPath).once('value');} // Promise.resolve(tileCache[tileRef]);}
+      return tilePCache[tileRefPath]. then 
         ( function (result)  {
-          console.log("got",lon,lat,tile,zoom);
-          return {"lon":lon, "lat":lat, "val": result.val(), "tile": tile, "zoom": zoom} } );
+          //console.log("got",lon,lat,tileRef);
+          return {"val": result.val(), "tileRef": tileRef} } );
       //return tilePCache[tileRef]. then ( function (h) {
       //  return toDegAndFill(h.val(), tile, zoom) ; })
       //  //return tileCache[tileRef]; })
     };
     
-    function toDegAndFill(cell, tile, zoom) {
-      var cellRef = zoom + " " + tile;
+    function toDegAndFill(cell, tileRef) {
+      var cellRef = tileRef.zoom + " " + tileRef.tileLon + " " + tileRef.tileLat;
       if (cellCache[cellRef] !== undefined){ return cellCache[cellRef]; }
-      var degCell={};
+      var degCell = {};
       //degCell.reqLon = lon;
       //degCell.reqLat = lat;
       //degCell.closestLon = parseInt(req[0].slice(-1),36);
       //degCell.closestLat = parseInt(req[1].slice(-1),36);
-      degCell.lon = parseInt(tile[0],36)*Math.pow(36, zoom)/1e6;
-      degCell.lat = parseInt(tile[1],36)*Math.pow(36, zoom)/1e6;
-      degCell.zoom = zoom;
-      degCell.d = Math.pow(36,  6-zoom)/1e6 ;
+      degCell.lon = parseInt(tileRef.tileLon,36)*Math.pow(36, tileRef.zoom)/1e6;
+      degCell.lat = parseInt(tileRef.tileLat,36)*Math.pow(36, tileRef.zoom)/1e6;
+      degCell.zoom = tileRef.zoom;
+      degCell.d = Math.pow(36,  6-tileRef.zoom)/1e6 ;
       //var sum = 0;
       //var n = 0.1;
       //iterate through grid, fill in current average
