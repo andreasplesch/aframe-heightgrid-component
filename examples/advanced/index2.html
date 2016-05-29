@@ -48,7 +48,7 @@
   window.onload = function () {
     //var n = 5; //make sequential otherwise USGS NED service maxes out at 20x20
     var lon0 = -119;
-    var lat0 = 35;
+    var lat0 = 34;
     var hscale = 10/1.679616/35;
     var yscale = 200*hscale/110000;
     var h_min = 0;
@@ -70,17 +70,18 @@
     */
     //complete tiles
     //getTileP (lon0, lat0, zl). then (tileToGrid.bind (el) );
-    //getTileP (lon0, lat0, zl). then ( function (result) { return toDegAndFill(result.val, getTileRef(lon0, lat0, zl)) } ).
-      //then ( tileToGrid.bind (el) );
+    getTileP (lon0, lat0, zl). then ( function (result) { return toDegAndFill(result.val, getTileRef(lon0, lat0, zl)) } ).
+     then ( tileToGrid.bind (el) );
     //getTileP (lon0+2, lat0, zl). then (tileToGrid.bind (el2) );
     //sample at given rate (1km)
     
     var gridSpacing = 36*36*36/1e6; // 30 arcseconds
-    var dim = 10;
+    var dim = 20;
     var lonT = lon0;
     var latT = lat0;
     var zheights = [];
-    for ( var i = 0; i < dim*dim; i++) { heights.push(0); };
+    var uvs = [];
+    for ( var i = 0; i < dim*dim; i++) { zheights.push(0); uvs.push(new THREE.Vector2())};
     var zo = 2;
     var gridPoints = [];
     //var sequence = getTileP(lonT, latT, zo);
@@ -125,12 +126,18 @@
       
       //var lonG = Math.round((atile.reqLon - lon0)/gridSpacing);
       //var latG = Math.round((atile.reqLat - lat0)/gridSpacing);
-      var lonG = Math.round((lon - lon0)/gridSpacing);
-      var latG = Math.round((lat - lat0)/gridSpacing);
+      //var lonG = Math.round((lon - lon0)/gridSpacing);
+      //var latG = Math.round((lat - lat0)/gridSpacing);
       
       //zheights[lonG+dim*latG]=atile[atile.closestLon][atile.closestLat];
-      zheights[lonG+dim*latG]=atile[tcoords[0]][tcoords[1]];
-      el3.setAttribute('heightgrid', { xdimension: dim, zdimension: dim, xspacing: 10/(dim-1), zspacing: 10/(dim-1), yscale: 0.0005, heights: zheights, uvs: uvs });
+      var h = atile[tcoords[0]][tcoords[1]];
+      zheights[lonG+dim*latG] = h;
+      var texH = Math.min(1, (h-h_min)/(h_max - h_min));
+      texH = texH < 0 ? 0.01 : texH+0.2;
+      uvs[lonG+dim*latG] = ( new THREE.Vector2 (texH, 0 ));
+        
+      //console.log(lon, lat, zheights[lonG+dim*latG]);
+      el3.setAttribute('heightgrid', { xdimension: dim, zdimension: dim, xspacing: 10/(dim-1), zspacing: 10/(dim-1), yscale: 0.001, heights: zheights, uvs: uvs });
     
     };
     
