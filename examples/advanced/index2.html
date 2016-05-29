@@ -70,13 +70,13 @@
     */
     //complete tiles
     //getTileP (lon0, lat0, zl). then (tileToGrid.bind (el) );
-    //getTileP (lon0, lat0, zl). then ( function (result) { return toDegAndFill(result.val, result.tileRef)}).
-    //  then ( tileToGrid.bind (el) );
+    //getTileP (lon0, lat0, zl). then ( function (result) { return toDegAndFill(result.val, getTileRef(lon0, lat0, zl)) } ).
+      //then ( tileToGrid.bind (el) );
     //getTileP (lon0+2, lat0, zl). then (tileToGrid.bind (el2) );
     //sample at given rate (1km)
     
     var gridSpacing = 36*36*36/1e6; // 30 arcseconds
-    var dim = 30;
+    var dim = 10;
     var lonT = lon0;
     var latT = lat0;
     var zheights = [];
@@ -97,7 +97,7 @@
     gridPoints.forEach( function getHeight(point) {
       sequence = sequence.then( function (result) {
               return getTileP(point[0], point[1], zo) }). then
-              ( function (result) { return toDegAndFill(result.val, result.tileRef)}).
+              ( function (result) { return toDegAndFill(result.val, getTileRef(point[0], point[1], zo))}).
                 then ( addToHeights.bind( [point[0], point[1], point[2], point[3]])) ;
             //});
           //  getTileP(lonT, latT, zo). then
