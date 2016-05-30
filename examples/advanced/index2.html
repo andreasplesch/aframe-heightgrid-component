@@ -21,9 +21,9 @@
       <a-entity rotation='-45 0 0' position='5 10 13'>
         <a-entity camera universal-controls='movementAcceleration: 40' ></a-entity>
       </a-entity>
-      <a-entity id='terrain'  crease heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0002'  material='src: #my-texture' ></a-entity>  
+      <a-entity id='terrain'  crease heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0002'  material='src: #my-texture' position='0 0 -10'></a-entity>  
       <a-entity id='terrain2' crease heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0002'  material='src: #my-texture' position='10 0 0'></a-entity>  
-      <a-entity id='terrain3' crease heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0002'  material='src: #my-texture' position='0 0 -10'></a-entity>  
+      <a-entity id='terrain3' crease heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0002'  material='src: #my-texture' position='0 0 0'></a-entity>  
         
     </a-scene>
   </body>
@@ -47,8 +47,8 @@
   <script>
   window.onload = function () {
     //var n = 5; //make sequential otherwise USGS NED service maxes out at 20x20
-    var lon0 = -119;
-    var lat0 = 34;
+    var lon0 = -118.5;
+    var lat0 = 33.8;
     var hscale = 10/1.679616/35;
     var yscale = 200*hscale/110000;
     var h_min = 0;
@@ -56,6 +56,7 @@
     var heights = [];
     var tilePCache = {};
     var cellCache = {};
+    var cellList = {};
     var uvs = []; // contour texture
     var el = document.querySelector('#terrain');
     var el2 = document.querySelector('#terrain2');
@@ -75,14 +76,14 @@
     //getTileP (lon0+2, lat0, zl). then (tileToGrid.bind (el2) );
     //sample at given rate (1km)
     
-    var gridSpacing = 36*36*36/1e6; // 30 arcseconds
-    var dim = 20;
+    var gridSpacing = 2/120; //36*36*6/1e6; // 30 arcseconds
+    var dim = 100;
     var lonT = lon0;
     var latT = lat0;
     var zheights = [];
     var uvs = [];
     for ( var i = 0; i < dim*dim; i++) { zheights.push(0); uvs.push(new THREE.Vector2())};
-    var zo = 2;
+    var zo = 3;
     var gridPoints = [];
     //var sequence = getTileP(lonT, latT, zo);
     //sample heights
@@ -94,19 +95,48 @@
       latT += gridSpacing;
       lonT = lon0;
     }
+    allTileP = [];
     var sequence = Promise.resolve();
     gridPoints.forEach( function getHeight(point) {
-      sequence = sequence.then( function (result) {
-              return getTileP(point[0], point[1], zo) }). then
-              ( function (result) { return toDegAndFill(result.val, getTileRef(point[0], point[1], zo))}).
-                then ( addToHeights.bind( [point[0], point[1], point[2], point[3]])) ;
+      var tileRef = getTileRef(point[0], point[1], zo);
+      var cellRef = tileRef.zoom + " " + tileRef.tileLon + " " + tileRef.tileLat;
+      
+      //console.log(cellList[cellRef], cellRef);
+        if (cellList[cellRef] === undefined){
+        console.log("use cell cache next", cellRef);
+        cellList[cellRef] = true;
+        //addToHeights.call( [point[0], point[1], point[2], point[3]], cellCache[cellRef]);
+        allTileP.push(getTileP(point[0], point[1], zo). then
+                ( function (result) { return toDegAndFill(result.val, tileRef)})
+                  .then ( addToHeights.bind( [point[0], point[1], point[2], point[3]])))
+        /*
+        sequence = sequence.then( function (result) {
+                return getTileP(point[0], point[1], zo) }). then
+                ( function (result) { return toDegAndFill(result.val, tileRef)})
+                  .then ( addToHeights.bind( [point[0], point[1], point[2], point[3]]))     
+                  .then (function () {el3.setAttribute('heightgrid', { xdimension: dim, zdimension: dim, xspacing: 10/(dim-1), zspacing: 10/(dim-1), yscale: 0.0005, heights: zheights, uvs: uvs })});
+        */
+        }
             //});
           //  getTileP(lonT, latT, zo). then
           //    ( function (result) { return toDegAndFill(result.val, result.tile, result.zoom)}).
           //      then ( addToHeights.bind( [lonT, latT, lonGrid, latGrid]) );
             
           //function(reason) {return getTileP(lonT, latT, zo)});
-      });  
+      });
+      Promise.all(allTileP).then
+      //sequence.then
+        ( function (result) {
+        // now plot again with cached cells
+        console.log("got tiles");
+        gridPoints.forEach( function getHeight(point) {
+          var tileRef = getTileRef(point[0], point[1], zo);
+          var cellRef = tileRef.zoom + " " + tileRef.tileLon + " " + tileRef.tileLat;
+          addToHeights.call( [point[0], point[1], point[2], point[3]], cellCache[cellRef]);
+        });
+        el3.setAttribute('heightgrid', { xdimension: dim, zdimension: dim, xspacing: 10/(dim-1), zspacing: 10/(dim-1), yscale: 0.0005, heights: zheights, uvs: uvs });
+    
+      });
     //el3.setAttribute('heightgrid', { xdimension: dim, zdimension: dim, xspacing: 10/dim, zspacing: 10/dim, yscale: 0.0001, heights: zheights, uvs: uvs });
     
     
@@ -137,7 +167,7 @@
       uvs[lonG+dim*latG] = ( new THREE.Vector2 (texH, 0 ));
         
       //console.log(lon, lat, zheights[lonG+dim*latG]);
-      el3.setAttribute('heightgrid', { xdimension: dim, zdimension: dim, xspacing: 10/(dim-1), zspacing: 10/(dim-1), yscale: 0.001, heights: zheights, uvs: uvs });
+      //el3.setAttribute('heightgrid', { xdimension: dim, zdimension: dim, xspacing: 10/(dim-1), zspacing: 10/(dim-1), yscale: 0.0005, heights: zheights, uvs: uvs });
     
     };
     
