@@ -1,0 +1,305 @@
+<html>
+  <head>
+    <title>A-Frame Height Grid (Terrain) Component - Advanced</title>
+    <script src="../build.js"></script>
+    <script src="lib/usgsNed.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/live/3.0/firebase.js"></script>
+    <!--script src="https://rawgit.com/andreasplesch/aframe-crease-component/master/dist/aframe-crease-component.min.js"></script-->
+    <script src="//cdn.rawgit.com/donmccurdy/aframe-extras/v1.15.1/dist/aframe-extras.min.js"></script>
+    <script src="https://raw.githubusercontent.com/andreasplesch/aframe-crease-component/master/dist/aframe-crease-component.min.js"></script>
+  </head>
+  <body>
+  Use keyboard and mouse to fly
+    <a-scene>
+      <a-assets>
+        <img id="my-texture" src="../assets/gist_earth10.png">
+      </a-assets>
+      
+      <a-entity light="type: directional; color: #FFF; intensity: 0.5" position="-100 100 100"></a-entity>
+      <a-entity light="type: directional; color: #FFF; intensity: 0.5" position="100 100 100"></a-entity>
+      <a-entity light="type: directional; color: #FFF; intensity: 0.5" position="0 -100 0"></a-entity>
+      <a-entity id='cam' rotation='-89 0 0' position='5 10 13'>
+        <a-entity camera universal-controls='movementAcceleration: 20' ></a-entity>
+      </a-entity>
+      <a-entity id='terrain'  crease heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0002'  material='src: #my-texture' position='0 0 -10'></a-entity>  
+      <a-entity id='terrain2' crease heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0002'  material='src: #my-texture' position='10 0 0'></a-entity>  
+      <a-entity id='terrain3' crease heightgrid='xdimension: 10; zdimension: 10; yscale: 0.0002'  material='src: #my-texture' position='0 0 0'></a-entity>  
+        
+    </a-scene>
+  </body>
+  <script>
+  // Initialize Firebase
+  var config = {
+    apiKey: "AIzaSyBs2_qlytz4ZdRlnmhe7f0VQwznUrWbVYM",
+    authDomain: "ca-elevation-1km.firebaseapp.com",
+    databaseURL: "https://ca-elevation-1km.firebaseio.com",
+    storageBucket: "ca-elevation-1km.appspot.com",
+  };
+  firebase.initializeApp(config);
+  firebase.auth().signInAnonymously().catch(function(error) {
+  // Handle Errors here.
+  var errorCode = error.code;
+  var errorMessage = error.message;
+  console.log(errorMessage,errorCode,error);
+  // ...
+  });
+  </script>
+  <script>
+  window.onload = function () {
+    //var n = 5; //make sequential otherwise USGS NED service maxes out at 20x20
+    var lon0 = -119;
+    var lat0 = 35;
+    var hscale = 10/1.679616/35; // not used
+    var yScale = 10/110000; //200*hscale/110000;
+    var h_min = -5000;
+    var h_max = 5000;
+    var heights = [];
+    var tilePCache = {};
+    var cellCache = {};
+    var cellList = {};
+    var uvs = []; // contour texture
+    var el = document.querySelector('#terrain');
+    var el2 = document.querySelector('#terrain2');
+    var el3 = document.querySelector('#terrain3');
+    var cam = document.querySelector('#cam');
+    var db = firebase.database();
+    var zl = 7; //zoomlevel
+    /*
+    var z2 = {};
+    db.ref(zl).once('value').then( function(snapshot) {
+      z2 = snapshot.val();
+      console.log(Object.keys(z2));} );
+    */
+    //complete tiles
+    getTileP (lon0, lat0, zl). then (tileToGrid.bind (el) )
+      . then (function() { 
+          cam.setAttribute( 'position', lon0 + ' 3 ' + -lat0 ) 
+        });
+    //getTileP (lon0, lat0, zl). then ( function (result) { return toDegAndFill(result.val(), getTileRef(lon0, lat0, zl)) } ).
+    // then ( tileToGrid.bind (el) );
+    //getTileP (lon0+2, lat0, zl). then (tileToGrid.bind (el2) );
+    //sample at given rate (1km)
+    /*
+    var gridSpacing = 2/120; //36*36*6/1e6; // 1/120=30 arcseconds
+    var dim = 100;
+    var lonT = lon0;
+    var latT = lat0;
+    var zheights = [];
+    var uvs = [];
+    for ( var i = 0; i < dim*dim; i++) { zheights.push(0); uvs.push(new THREE.Vector2())};
+    var zo = 3;
+    var gridPoints = [];
+    //var sequence = getTileP(lonT, latT, zo);
+    //sample heights
+    for (var latGrid = dim-1; latGrid >= 0 ; latGrid--) {
+      for (var lonGrid = 0; lonGrid < dim; lonGrid++) {
+        gridPoints.push([lonT, latT, lonGrid, latGrid]);
+        lonT += gridSpacing;
+      }
+      latT += gridSpacing;
+      lonT = lon0;
+    }
+    allTileP = [];
+    //var sequence = Promise.resolve();
+    gridPoints.forEach( function getHeight(point) {
+      var tileRef = getTileRef(point[0], point[1], zo);
+      var cellRef = tileRef.zoom + " " + tileRef.tileLon + " " + tileRef.tileLat;
+      
+      //console.log(cellList[cellRef], cellRef);
+        if (cellList[cellRef] === undefined){
+        //console.log("use cell cache next", cellRef);
+        cellList[cellRef] = true;
+        //addToHeights.call( [point[0], point[1], point[2], point[3]], cellCache[cellRef]);
+        allTileP.push(getTileP(point[0], point[1], zo) ); // line up required tile promises
+                //. then ( function (result) { return toDegAndFill(result.val(), tileRef)})
+                //  .then ( addToHeights.bind( [point[0], point[1], point[2], point[3]])))
+        // much slower but safer
+        //sequence = sequence.then( function (result) {
+        //       return getTileP(point[0], point[1], zo) })
+        //        //. then( function (result) { return toDegAndFill(result.val(), tileRef)})
+        //          .then ( addToHeights.bind( [point[0], point[1], point[2], point[3]]))     
+        //          .then (function () {el3.setAttribute('heightgrid', { xdimension: dim, zdimension: dim, xspacing: 10/(dim-1), zspacing: 10/(dim-1), yscale: 0.0005, heights: zheights, uvs: uvs })});
+        
+        
+        
+        }
+            //});
+          //  getTileP(lonT, latT, zo). then
+          //    ( function (result) { return toDegAndFill(result.val, result.tile, result.zoom)}).
+          //      then ( addToHeights.bind( [lonT, latT, lonGrid, latGrid]) );
+            
+          //function(reason) {return getTileP(lonT, latT, zo)});
+      });
+      Promise.all(allTileP).then
+      //sequence.then
+        ( function (result) {
+        // now plot with cached cells
+        console.log("got tiles");
+        //populate heights array
+        gridPoints.forEach( function getHeight(point) {
+          var tileRef = getTileRef(point[0], point[1], zo);
+          var cellRef = tileRef.zoom + " " + tileRef.tileLon + " " + tileRef.tileLat;
+          addToHeights.call( [point[0], point[1], point[2], point[3]], cellCache[cellRef]);
+        });
+        el3.setAttribute('position', (lonT+360)%360 + ' 0 ' + -latT);
+        var spacing = (dim * gridSpacing)/(dim-1);
+        el3.setAttribute('heightgrid', { xdimension: dim, zdimension: dim, xspacing: spacing, zspacing: spacing, yscale: yScale, heights: zheights, uvs: uvs });
+    
+      });
+    //el3.setAttribute('heightgrid', { xdimension: dim, zdimension: dim, xspacing: 10/dim, zspacing: 10/dim, yscale: 0.0001, heights: zheights, uvs: uvs });
+    */
+    
+    function addToHeights (atile) {
+      if (atile === undefined) {return}
+      //console.log(this);
+      var lon = this[0];
+      var lat = this[1];
+      var lonG = this[2];
+      var latG = this[3];
+      
+      //determine cellCoord
+      var tcoords = [(lon+360)%360, lat].map( function getTileCoord (coord) {
+        coord = coord * 1e6 / Math.pow(36, 5-zo);
+        return Math.round(coord) });
+      tcoords = tcoords.map( function remainder (coord) { return coord%36 } );
+      
+      //var lonG = Math.round((atile.reqLon - lon0)/gridSpacing);
+      //var latG = Math.round((atile.reqLat - lat0)/gridSpacing);
+      //var lonG = Math.round((lon - lon0)/gridSpacing);
+      //var latG = Math.round((lat - lat0)/gridSpacing);
+      
+      //zheights[lonG+dim*latG]=atile[atile.closestLon][atile.closestLat];
+      var h = atile[tcoords[0]][tcoords[1]];
+      zheights[lonG+dim*latG] = h;
+      var texH = Math.min(1, (h-h_min)/(h_max - h_min));
+      texH = texH < 0 ? 0.01 : texH+0.2;
+      uvs[lonG+dim*latG] = ( new THREE.Vector2 (texH, 0 ));
+        
+      //console.log(lon, lat, zheights[lonG+dim*latG]);
+      //el3.setAttribute('heightgrid', { xdimension: dim, zdimension: dim, xspacing: 10/(dim-1), zspacing: 10/(dim-1), yscale: 0.0005, heights: zheights, uvs: uvs });
+    
+    };
+    
+    
+    function tileToGrid (btile) {
+      var n = 256;
+      var s = (n * btile.sd)/(n-1); // * hscale;
+      //var heights = [];
+      //var heights = Array.prototype.slice.call(btile.heights16); // convert to regular array
+      var heights = btile.heights16; 
+      
+      var uvs = [];
+      heights.forEach(function scaleUV (h) {
+          var texH = Math.min(1, (h-h_min)/(h_max - h_min));
+          texH = texH < 0 ? 0.01 : texH+0.2;
+          uvs.push( new THREE.Vector2 (texH, 0 ));
+        });
+      /*  
+      for (var lat = 0; lat < n; lat++) {
+        for (var lon = 0; lon < n; lon++) {
+          var h = dtile[lon][n-lat-1];
+          heights.push(h);
+          var texH = Math.min(1, (h-h_min)/(h_max - h_min));
+          texH = texH < 0 ? 0.01 : texH+0.2;
+          uvs.push( new THREE.Vector2 (texH, 0 ));
+        }
+      }
+      */
+      this.setAttribute('heightgrid', { xdimension: n, zdimension: n, xspacing: s, zspacing: s, yscale: yScale, heights: heights, uvs: uvs });
+      //dtile.lat is lower left, but heightgrid origin is upper left
+      this.setAttribute('position', btile.lon + ' 0 ' + -(btile.lat));//+(n-1)*s));
+    };
+    
+    function getTileRef(lon, lat, zoom) {
+      var lon = (lon+360)%360;
+      var tileLon = Math.floor(((lon+180)%360)/360 * Math.pow(2, zoom));
+      //var lat = lat*Math.PI/180;
+      var lat = lat*Math.PI/180; //TMS
+      var tileLat = Math.floor((1-Math.log(Math.tan(lat) + 1/Math.cos(lat))/Math.PI)/2 * Math.pow(2,zoom))
+      return {"zoom": zoom, "tileLon": tileLon, "tileLat": tileLat}
+    }
+    
+    function getTileP(lon, lat, zoom) {
+      
+      var tileRef = getTileRef(lon, lat, zoom);
+      var tileRefPath = tileRef.zoom + "/" + tileRef.tileLon + "/" + tileRef.tileLat;
+      
+      //if (tilePCache[tileRefPath] === undefined) {tilePCache[tileRefPath] = db.ref(tileRefPath).once('value');} // Promise.resolve(tileCache[tileRef]);}
+      //return tilePCache[tileRefPath]. then 
+      //return db.ref(tileRefPath).once('value') //. then
+      return db.ref(tileRefPath).once('value'). then 
+        ( function (result) { return base64ToArray(result.val(), tileRef) } )
+        //( function (result)  {
+          //console.log("got",lon,lat,tileRef);
+          //return {"val": result.val(), "tileRef": tileRef} } );
+          //return {"val": result.val()} } );
+          //return result} );
+      //return tilePCache[tileRef]. then ( function (h) {
+      //  return toDegAndFill(h.val(), tile, zoom) ; })
+      //  //return tileCache[tileRef]; })
+    };
+    
+    function base64ToArray(cell, tileRef) {
+      var cellRef = tileRef.zoom + " " + tileRef.tileLon + " " + tileRef.tileLat;
+      if (cellCache[cellRef] !== undefined){ return cellCache[cellRef]; }
+      var bCell = {};
+      //degCell.reqLon = lon;
+      //degCell.reqLat = lat;
+      //degCell.closestLon = parseInt(req[0].slice(-1),36);
+	//degCell.closestLat = parseInt(req[1].slice(-1),36);
+      var z2 = Math.pow(2, tileRef.zoom);
+      bCell.lon = tileRef.tileLon/z2*360-180; //parseInt(tileRef.tileLon,36)*Math.pow(36, 6-tileRef.zoom)/1e6;
+      var n=Math.PI-2*Math.PI*tileRef.tileLat/z2;
+      var lat = Math.atan(0.5*(Math.exp(n)-Math.exp(-n)));//parseInt(tileRef.tileLat,36)*Math.pow(36, 6-tileRef.zoom)/1e6;
+      //bCell.lat  = 180/Math.PI * lat;
+      bCell.lat  = 180/Math.PI * lat;
+      bCell.zoom = tileRef.zoom;
+      bCell.sm = 6378137 * 2 * Math.PI * Math.cos(lat) / 256 / z2;//Math.pow(36,  5-tileRef.zoom)/1e6 ;
+      bCell.sd = 360/256/z2;
+      var byteArr = atob(cell).split("").map(function toNum(byte){return byte.charCodeAt(0)});
+      byteArr = new Int8Array(byteArr);
+      bCell.heights16 = new Int16Array(byteArr.buffer);
+	
+      //var sum = 0;
+      //var n = 0.1;
+      //iterate through grid, fill in current average
+      /*
+      for (var lon = 0; lon < 36; lon++) {
+        degCell[lon]={};
+        var alon = lon.toString(36);
+        for (var lat=0; lat<36; lat++) {
+          var alat=lat.toString(36);
+          if (cell[alon] !== undefined && cell[alon][alat] !== undefined) {
+            degCell[lon][lat] = cell[alon][alat];
+          }
+          else {
+             degCell[lon][lat] = dstAverage(cell, lon, lat, 7);
+          }
+          //sum += degCell[lon][lat];
+          //n++;
+        }
+      }
+      */
+      cellCache[cellRef] = bCell;
+      return bCell
+    };
+    
+    // inverse distance weighted average
+    function dstAverage(cell, lon, lat, smoothness) {
+      var sum = 0;
+      var sumWeights = 0;
+      Object.keys(cell).forEach ( function allLons (alon) {
+        var dlon = parseInt(alon, 36);
+        Object.keys(cell[alon]).forEach ( function allLats (alat) {
+          var dlat = parseInt(alat, 36);
+          var dst = Math.sqrt((dlon - lon)*(dlon - lon) + (dlat - lat)*(dlat - lat));
+          sum += cell[alon][alat]*Math.pow(dst,-smoothness);
+          sumWeights += Math.pow(dst,-smoothness);
+        });
+      });
+      return sum/sumWeights;
+    };
+  }
+  
+  </script>
+</html>
